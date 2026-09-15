@@ -59,7 +59,15 @@ Scene::Scene()
       cylinder(Primitives::makeCylinder(28)),
       cone    (Primitives::makeCone(28)),
       sphere  (Primitives::makeSphere(28, 18)),
-      prism   (Primitives::makePrism())
+      prism   (Primitives::makePrism()),
+      texGrass ("textures/grass.png"),
+      texLeaves("textures/leaves.png"),
+      texBark  ("textures/bark.png"),
+      texWood  ("textures/wood.png"),
+      texBrick ("textures/brick.png"),
+      texRoof  ("textures/roof.png"),
+      texStone ("textures/stone.png"),
+      texMetal ("textures/metal.png")
 {
     // --- windmills ---
     windmills.push_back({ glm::vec3(-9.0f, 0.0f, -7.0f), 1.00f, -25.0f,   0.0f });
@@ -147,6 +155,15 @@ void Scene::Delete()
     cone.Delete();
     sphere.Delete();
     prism.Delete();
+
+    texGrass.Delete();
+    texLeaves.Delete();
+    texBark.Delete();
+    texWood.Delete();
+    texBrick.Delete();
+    texRoof.Delete();
+    texStone.Delete();
+    texMetal.Delete();
 }
 
 // ---------------------------------------------------------------------------
@@ -154,7 +171,7 @@ void Scene::drawGround(Shader& shader)
 {
     glm::mat4 m = glm::scale(glm::mat4(1.0f),
                              glm::vec3(GROUND_SIZE, 1.0f, GROUND_SIZE));
-    plane.Draw(shader, m, C_GRASS);
+    plane.Draw(shader, m, C_GRASS, &texGrass);
 }
 
 // ---------------------------------------------------------------------------
@@ -183,12 +200,12 @@ void Scene::drawWindmill(Shader& shader, const Windmill& w)
     // sinking half of it below. The same trick is used for trunks and poles.
     glm::mat4 tower = glm::translate(base, glm::vec3(0.0f, TOWER_HEIGHT * 0.5f, 0.0f));
     tower = glm::scale(tower, glm::vec3(TOWER_DIA, TOWER_HEIGHT, TOWER_DIA));
-    cylinder.Draw(shader, tower, C_TOWER);
+    cylinder.Draw(shader, tower, C_TOWER, &texStone);
 
     // --- head: yaws about its own vertical pivot at the top of the tower ---
     glm::mat4 headPivot = glm::translate(base, glm::vec3(0.0f, TOWER_HEIGHT, 0.0f));
     headPivot = glm::rotate(headPivot, glm::radians(w.yawDeg), glm::vec3(0, 1, 0));
-    cube.Draw(shader, glm::scale(headPivot, HEAD_SIZE), C_HEAD);
+    cube.Draw(shader, glm::scale(headPivot, HEAD_SIZE), C_HEAD, &texWood);
 
     // --- hub: inherits the yaw, then adds its own independent spin ---
     glm::mat4 hubPivot = glm::translate(headPivot,
@@ -200,7 +217,7 @@ void Scene::drawWindmill(Shader& shader, const Windmill& w)
     // along Z and face the viewer.
     glm::mat4 hub = glm::rotate(hubPivot, glm::radians(90.0f), glm::vec3(1, 0, 0));
     hub = glm::scale(hub, glm::vec3(0.55f, 0.45f, 0.55f));
-    cylinder.Draw(shader, hub, C_HUB);
+    cylinder.Draw(shader, hub, C_HUB, &texMetal);
 
     // --- four blades, each a further 90 degrees around the hub axis ---
     for (int i = 0; i < 4; ++i)
@@ -209,7 +226,7 @@ void Scene::drawWindmill(Shader& shader, const Windmill& w)
                                       glm::vec3(0, 0, 1));
         blade = glm::translate(blade, glm::vec3(0.0f, BLADE_LENGTH * 0.5f, 0.0f));
         blade = glm::scale(blade, glm::vec3(0.22f, BLADE_LENGTH, 0.07f));
-        cube.Draw(shader, blade, C_BLADE);
+        cube.Draw(shader, blade, C_BLADE, &texWood);
     }
 }
 
@@ -223,19 +240,19 @@ void Scene::drawHouse(Shader& shader, const Transform& t)
 
     // Body.
     glm::mat4 body = glm::translate(base, glm::vec3(0.0f, bodySize.y * 0.5f, 0.0f));
-    cube.Draw(shader, glm::scale(body, bodySize), C_WALL);
+    cube.Draw(shader, glm::scale(body, bodySize), C_WALL, &texBrick);
 
     // Roof: the prism's ridge runs along Z, so it slopes over the 6-unit width.
     glm::mat4 roof = glm::translate(base,
                         glm::vec3(0.0f, bodySize.y + roofSize.y * 0.5f, 0.0f));
-    prism.Draw(shader, glm::scale(roof, roofSize), C_ROOF);
+    prism.Draw(shader, glm::scale(roof, roofSize), C_ROOF, &texRoof);
 
     // Door and windows sit on the front face (+Z), pushed out by 0.01 so they
     // do not z-fight with the wall they are coplanar with.
     const float face = bodySize.z * 0.5f + 0.01f;
 
     glm::mat4 door = glm::translate(base, glm::vec3(0.0f, 1.05f, face));
-    cube.Draw(shader, glm::scale(door, glm::vec3(1.1f, 2.1f, 0.12f)), C_DOOR);
+    cube.Draw(shader, glm::scale(door, glm::vec3(1.1f, 2.1f, 0.12f)), C_DOOR, &texWood);
 
     for (float x : { -2.0f, 2.0f })
     {
@@ -265,7 +282,7 @@ void Scene::drawWaterWheel(Shader& shader, const glm::vec3& pos)
         glm::mat4 post = glm::translate(glm::mat4(1.0f),
                              glm::vec3(pos.x, pos.y * 0.5f, pos.z + z));
         post = glm::scale(post, glm::vec3(0.32f, pos.y, 0.32f));
-        cube.Draw(shader, post, C_WOOD_D);
+        cube.Draw(shader, post, C_WOOD_D, &texWood);
     }
 
     glm::mat4 pivot = glm::translate(glm::mat4(1.0f), pos);
@@ -274,7 +291,7 @@ void Scene::drawWaterWheel(Shader& shader, const glm::vec3& pos)
     // Axle, lying along Z like the windmill hub.
     glm::mat4 hub = glm::rotate(pivot, glm::radians(90.0f), glm::vec3(1, 0, 0));
     hub = glm::scale(hub, glm::vec3(0.65f, width + 0.9f, 0.65f));
-    cylinder.Draw(shader, hub, C_WOOD_D);
+    cylinder.Draw(shader, hub, C_WOOD_D, &texWood);
 
     for (int i = 0; i < paddles; ++i)
     {
@@ -285,7 +302,7 @@ void Scene::drawWaterWheel(Shader& shader, const glm::vec3& pos)
         // the hub to the rim instead of straddling the centre.
         glm::mat4 spoke = glm::translate(arm, glm::vec3(0.0f, radius * 0.5f, 0.0f));
         spoke = glm::scale(spoke, glm::vec3(0.14f, radius, 0.14f));
-        cube.Draw(shader, spoke, C_WOOD);
+        cube.Draw(shader, spoke, C_WOOD, &texWood);
 
         // Rim segment, sitting halfway between two spokes. After the rotation
         // the cube's local X is tangential, so scaling X by the chord closes
@@ -294,12 +311,12 @@ void Scene::drawWaterWheel(Shader& shader, const glm::vec3& pos)
                                     glm::vec3(0, 0, 1));
         rim = glm::translate(rim, glm::vec3(0.0f, radius, 0.0f));
         rim = glm::scale(rim, glm::vec3(chord * 1.02f, 0.16f, width));
-        cube.Draw(shader, rim, C_WOOD);
+        cube.Draw(shader, rim, C_WOOD, &texWood);
 
         // Paddle, standing proud of the rim.
         glm::mat4 paddle = glm::translate(arm, glm::vec3(0.0f, radius + 0.3f, 0.0f));
         paddle = glm::scale(paddle, glm::vec3(0.5f, 0.75f, width));
-        cube.Draw(shader, paddle, C_WOOD_D);
+        cube.Draw(shader, paddle, C_WOOD_D, &texWood);
     }
 }
 
@@ -313,14 +330,14 @@ void Scene::drawTree(Shader& shader, const Transform& t)
 
     glm::mat4 trunk = glm::translate(base, glm::vec3(0.0f, trunkHeight * 0.5f, 0.0f));
     trunk = glm::scale(trunk, glm::vec3(trunkDia, trunkHeight, trunkDia));
-    cylinder.Draw(shader, trunk, C_BARK);
+    cylinder.Draw(shader, trunk, C_BARK, &texBark);
 
     // Two overlapping cones give the canopy some shape.
     glm::mat4 lower = glm::translate(base, glm::vec3(0.0f, trunkHeight + 1.05f, 0.0f));
-    cone.Draw(shader, glm::scale(lower, glm::vec3(2.7f, 2.5f, 2.7f)), C_LEAF_LO);
+    cone.Draw(shader, glm::scale(lower, glm::vec3(2.7f, 2.5f, 2.7f)), C_LEAF_LO, &texLeaves);
 
     glm::mat4 upper = glm::translate(base, glm::vec3(0.0f, trunkHeight + 2.35f, 0.0f));
-    cone.Draw(shader, glm::scale(upper, glm::vec3(1.9f, 2.1f, 1.9f)), C_LEAF_HI);
+    cone.Draw(shader, glm::scale(upper, glm::vec3(1.9f, 2.1f, 1.9f)), C_LEAF_HI, &texLeaves);
 }
 
 // ---------------------------------------------------------------------------
@@ -359,7 +376,7 @@ void Scene::drawFenceRun(Shader& shader, const glm::vec3& from,
         glm::mat4 post = glm::translate(glm::mat4(1.0f),
                              p + glm::vec3(0.0f, postHeight * 0.5f, 0.0f));
         post = glm::scale(post, glm::vec3(0.18f, postHeight, 0.18f));
-        cube.Draw(shader, post, C_FENCE);
+        cube.Draw(shader, post, C_FENCE, &texWood);
     }
 
     for (int i = 0; i < spans; ++i)
@@ -371,7 +388,7 @@ void Scene::drawFenceRun(Shader& shader, const glm::vec3& from,
                                             mid + glm::vec3(0.0f, y, 0.0f));
             rail = glm::rotate(rail, yaw, glm::vec3(0, 1, 0));
             rail = glm::scale(rail, glm::vec3(0.07f, 0.14f, spanLen));
-            cube.Draw(shader, rail, C_FENCE);
+            cube.Draw(shader, rail, C_FENCE, &texWood);
         }
     }
 }
@@ -385,7 +402,7 @@ void Scene::drawLampPost(Shader& shader, const glm::vec3& pos)
 
     glm::mat4 pole = glm::translate(base, glm::vec3(0.0f, poleHeight * 0.5f, 0.0f));
     pole = glm::scale(pole, glm::vec3(0.22f, poleHeight, 0.22f));
-    cylinder.Draw(shader, pole, C_METAL);
+    cylinder.Draw(shader, pole, C_METAL, &texMetal);
 
     glm::mat4 bulb = glm::translate(base, glm::vec3(0.0f, poleHeight + 0.22f, 0.0f));
     sphere.Draw(shader, glm::scale(bulb, glm::vec3(0.55f)), C_BULB);

@@ -35,10 +35,17 @@ Mesh::Mesh(const MeshData& data)
     ebo.Unbind();
 }
 
-void Mesh::Draw(Shader& shader, const glm::mat4& model, const glm::vec3& color) const
+void Mesh::Draw(Shader& shader, const glm::mat4& model, const glm::vec3& color,
+                const Texture* texture) const
 {
     shader.setMat4("model", model);
     shader.setVec3("objectColor", color);
+
+    // hasTexture is per draw; useTexture is the global T toggle set once a
+    // frame. A surface is only textured when both are true.
+    const bool textured = (texture != nullptr) && texture->Valid();
+    shader.setBool("hasTexture", textured);
+    if (textured) texture->Bind();
 
     vao.Bind();
     glDrawElements(GL_TRIANGLES, ebo.count, GL_UNSIGNED_INT, 0);

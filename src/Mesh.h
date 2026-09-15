@@ -5,6 +5,7 @@
 #include "EBO.h"
 #include "Primitives.h"
 #include "Shader.h"
+#include "Texture.h"
 #include "VAO.h"
 #include "VBO.h"
 
@@ -19,9 +20,12 @@ public:
     explicit Mesh(const MeshData& data);
 
     // colour feeds the "objectColor" uniform, so one mesh serves every object
-    // that shares its shape regardless of colour.
+    // that shares its shape regardless of colour. texture is optional: pass
+    // nullptr for surfaces that stay flat-coloured, such as the sun and the
+    // lamp bulbs. colour is still what shows when textures are toggled off.
     void Draw(Shader& shader, const glm::mat4& model,
-              const glm::vec3& color = glm::vec3(1.0f)) const;
+              const glm::vec3& color = glm::vec3(1.0f),
+              const Texture* texture = nullptr) const;
 
     void Delete();
 

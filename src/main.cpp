@@ -7,16 +7,18 @@
 // Phase 4: primitive library and the Mesh class.
 // Phase 5: the windmill's nested transformation hierarchy.
 // Phase 6: the complete scene.
+// Phase 7: camera, projection toggle and the full control scheme.
+// Phase 8: textures.
 
 #include <glad/glad.h>   // must come before GLFW or any other GL header
 #include <GLFW/glfw3.h>
 
 #include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
 
-#include <cmath>
+#include <algorithm>
 #include <iostream>
 
+#include "Camera.h"
 #include "Scene.h"
 #include "Shader.h"
 
@@ -34,24 +36,40 @@ void framebufferSizeCallback(GLFWwindow* window, int width, int height)
     glViewport(0, 0, width, height);
 }
 
-void processInput(GLFWwindow* window, Scene& scene, float deltaTime)
+// Fires only on the frame a key goes down, so a toggle does not flicker while
+// the key is held.
+static bool pressedOnce(GLFWwindow* window, int key, bool& wasDown)
 {
-    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
-        glfwSetWindowShouldClose(window, true);
-
-    // Phase 5 check: yawing the head must swing the blades with it while they
-    // keep spinning. Phase 7 folds this into the full control scheme.
-    const float yawRate = 60.0f * deltaTime;
-    if (glfwGetKey(window, GLFW_KEY_COMMA)  == GLFW_PRESS) scene.AdjustHeadYaw(-yawRate);
-    if (glfwGetKey(window, GLFW_KEY_PERIOD) == GLFW_PRESS) scene.AdjustHeadYaw( yawRate);
+    const bool down = glfwGetKey(window, key) == GLFW_PRESS;
+    const bool fired = down && !wasDown;
+    wasDown = down;
+    return fired;
 }
 
 void printControls()
 {
-    std::cout << "\n=============== WINDMILL FARM - CONTROLS ===============\n"
-              << "  , / .   Yaw the windmill heads\n"
-              << "  ESC     Quit\n"
-              << "========================================================\n\n";
+    std::cout <<
+        "\n================= WINDMILL FARM - CONTROLS =================\n"
+        "  MOVEMENT (free-fly camera)\n"
+        "    W / S        Forward / backward\n"
+        "    A / D        Strafe left / right\n"
+        "    E / R        Rise / descend\n"
+        "    LEFT SHIFT   Move faster (hold)\n"
+        "    RIGHT MOUSE  Look around (hold; cursor hides)\n"
+        "\n"
+        "  VIEW\n"
+        "    F            Toggle orbit camera / free-fly\n"
+        "                   in orbit: W/S zoom, A/D swing, E/R height\n"
+        "    P            Toggle perspective / orthographic\n"
+        "\n"
+        "  SCENE\n"
+        "    T            Toggle textures on / off\n"
+        "    SPACE        Pause / resume all animation\n"
+        "    + / -        Blade speed up / down\n"
+        "    , / .        Yaw the windmill heads\n"
+        "\n"
+        "    ESC          Quit\n"
+        "===========================================================\n\n";
 }
 
 int main()
@@ -99,10 +117,9 @@ int main()
     // important - half the fix on its own does nothing.
     glEnable(GL_DEPTH_TEST);
 
-    // Every primitive winds counter-clockwise when seen from outside, so
-    // back faces can be discarded. It roughly halves the triangles rasterised
-    // and, during development, makes any winding mistake obvious immediately:
-    // a wrongly wound face simply disappears.
+    // Every primitive winds counter-clockwise when seen from outside, so back
+    // faces can be discarded. During development it also makes any winding
+    // mistake obvious: a wrongly wound face simply disappears.
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
     glFrontFace(GL_CCW);
@@ -121,8 +138,18 @@ int main()
         return -1;
     }
 
-    // ---- Scene -----------------------------------------------------------
-    Scene scene;
+    shader.Activate();
+    shader.setInt("diffuse0", 0);   // every texture binds to unit 0 for now
+
+    // ---- Scene and camera -------------------------------------------------
+    Scene  scene;
+    Camera camera(glm::vec3(0.0f, 7.0f, 30.0f), -90.0f, -8.0f);
+
+    bool texturesOn = true;
+
+    // Previous-frame key states, for the edge-triggered toggles.
+    bool wasF = false, wasP = false, wasT = false, wasSpace = false;
+
     printControls();
 
     float lastFrame = static_cast<float>(glfwGetTime());
@@ -130,13 +157,57 @@ int main()
     // ---- Render loop -----------------------------------------------------
     while (!glfwWindowShouldClose(window))
     {
-        float currentFrame = static_cast<float>(glfwGetTime());
-        float deltaTime = currentFrame - lastFrame;
+        const float currentFrame = static_cast<float>(glfwGetTime());
+        const float deltaTime = currentFrame - lastFrame;
         lastFrame = currentFrame;
 
-        processInput(window, scene, deltaTime);
+        // ---- input --------------------------------------------------------
+        if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+            glfwSetWindowShouldClose(window, true);
+
+        camera.Inputs(window, deltaTime);
+
+        if (pressedOnce(window, GLFW_KEY_F, wasF))
+        {
+            camera.ToggleOrbit();
+            std::cout << "Camera: " << (camera.OrbitMode() ? "orbit" : "free-fly") << "\n";
+        }
+        if (pressedOnce(window, GLFW_KEY_P, wasP))
+        {
+            camera.ToggleProjection();
+            std::cout << "Projection: "
+                      << (camera.Orthographic() ? "orthographic" : "perspective") << "\n";
+        }
+        if (pressedOnce(window, GLFW_KEY_T, wasT))
+        {
+            texturesOn = !texturesOn;
+            std::cout << "Textures: " << (texturesOn ? "on" : "off") << "\n";
+        }
+        if (pressedOnce(window, GLFW_KEY_SPACE, wasSpace))
+        {
+            scene.paused = !scene.paused;
+            std::cout << "Animation: " << (scene.paused ? "paused" : "running") << "\n";
+        }
+
+        // Blade speed: held, so it ramps smoothly rather than stepping.
+        const float speedStep = 45.0f * deltaTime;
+        if (glfwGetKey(window, GLFW_KEY_EQUAL) == GLFW_PRESS ||
+            glfwGetKey(window, GLFW_KEY_KP_ADD) == GLFW_PRESS)
+            scene.bladeSpeed += speedStep;
+        if (glfwGetKey(window, GLFW_KEY_MINUS) == GLFW_PRESS ||
+            glfwGetKey(window, GLFW_KEY_KP_SUBTRACT) == GLFW_PRESS)
+            scene.bladeSpeed -= speedStep;
+        scene.bladeSpeed = std::max(-360.0f, std::min(360.0f, scene.bladeSpeed));
+
+        // Windmill head yaw - the Phase 5 hierarchy check.
+        const float yawRate = 60.0f * deltaTime;
+        if (glfwGetKey(window, GLFW_KEY_COMMA)  == GLFW_PRESS) scene.AdjustHeadYaw(-yawRate);
+        if (glfwGetKey(window, GLFW_KEY_PERIOD) == GLFW_PRESS) scene.AdjustHeadYaw( yawRate);
+
+        // ---- update -------------------------------------------------------
         scene.Update(deltaTime);
 
+        // ---- render -------------------------------------------------------
         glClearColor(SKY_R, SKY_G, SKY_B, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -144,26 +215,13 @@ int main()
 
         // Recomputed each frame so resizing keeps the aspect ratio correct.
         glfwGetFramebufferSize(window, &fbWidth, &fbHeight);
-        float aspect = (fbHeight > 0) ? (float)fbWidth / (float)fbHeight : 1.0f;
+        const float aspect = (fbHeight > 0)
+                           ? static_cast<float>(fbWidth) / static_cast<float>(fbHeight)
+                           : 1.0f;
 
-        glm::mat4 projection = glm::perspective(glm::radians(45.0f), aspect,
-                                                0.1f, 200.0f);
-
-        // Placeholder view: a slow orbit so the whole farm can be inspected.
-        // Phase 7 replaces this entirely with the Camera class.
-        const float orbitRadius = 34.0f;
-        const float orbitHeight = 10.0f;
-        float orbitAngle = currentFrame * 0.12f;
-        glm::vec3 eye(std::sin(orbitAngle) * orbitRadius,
-                      orbitHeight,
-                      std::cos(orbitAngle) * orbitRadius);
-        // Aimed above the horizon rather than straight at the ground, so the
-        // windmill heads and the sun stay in frame.
-        glm::mat4 view = glm::lookAt(eye, glm::vec3(0.0f, 5.0f, 0.0f),
-                                     glm::vec3(0.0f, 1.0f, 0.0f));
-
-        shader.setMat4("projection", projection);
-        shader.setMat4("view", view);
+        shader.setMat4("projection", camera.ProjectionMatrix(aspect));
+        shader.setMat4("view", camera.ViewMatrix());
+        shader.setBool("useTexture", texturesOn);
 
         scene.Draw(shader);
 

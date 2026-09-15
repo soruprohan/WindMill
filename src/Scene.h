@@ -66,6 +66,11 @@ private:
     // Generated once at startup, redrawn many times with different matrices.
     Mesh cube, plane, cylinder, cone, sphere, prism;
 
+    // Loaded once at startup. All bind to texture unit 0; Phase 11 adds the
+    // specular maps that need a second unit.
+    Texture texGrass, texLeaves, texBark, texWood,
+            texBrick, texRoof, texStone, texMetal;
+
     // Animation angles, advanced in Update().
     float bladeAngle = 0.0f;
     float wheelAngle = 0.0f;

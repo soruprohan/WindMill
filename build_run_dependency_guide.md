@@ -3,12 +3,13 @@
 A 3D countryside scene with nested rotational hierarchies, in OpenGL 3.3 Core.
 See [windmill_farm_implementation_plan.md](windmill_farm_implementation_plan.md) for the phase plan.
 
-**Current status: Phase 6 complete** — the full countryside scene: two windmills
-with nested rotating hierarchies, farmhouse, water wheel, trees, fence, lamp
-posts and sun, flat-shaded and animated.
+**Current status: Phase 8 complete** — a fully textured countryside scene you can
+fly or orbit around, with perspective/orthographic and texture toggles. Lighting
+(Phases 9–11) is the remaining work.
 
 - [phase1_to_3.md](phase1_to_3.md) — Shader class, buffer wrappers, MVP and depth
 - [phase4_to_6.md](phase4_to_6.md) — primitive library, Mesh, windmill hierarchy, scene
+- [phase7_to_8.md](phase7_to_8.md) — camera, projections, controls, textures
 
 ## Build
 
@@ -42,15 +43,15 @@ The program must run with the project root as its working directory, so that
 | GLFW 3 | MSYS2 package `mingw-w64-x86_64-glfw` |
 | GLM | MSYS2 package `mingw-w64-x86_64-glm` |
 | GLAD | vendored in `include/glad`, `include/KHR`, `src/glad.c` (gl 4.6 compatibility) |
-| stb_image.h | to be dropped into `libs/` at Phase 8 |
+| stb_image.h | v2.14, vendored in `libs/` (copied from `CSE 4208 - Graphics/Lab_4`) |
 
 ## Layout
 
 ```
 WindMill/
-├── src/            main.cpp, glad.c, Scene, Primitives, Mesh, Shader, VAO/VBO/EBO
+├── src/            main.cpp, glad.c, Camera, Scene, Primitives, Mesh, Texture, Shader, VAO/VBO/EBO
 ├── shaders/        default.vert / default.frag
-├── textures/       image files (Phase 8)
+├── textures/       8 tiling PNGs + generate_textures.py
 ├── libs/           header-only third-party (stb_image.h)
 ├── include/        glad/ and KHR/ headers
 └── build/          objects and WindmillFarm.exe (generated, gitignored)
@@ -60,7 +61,18 @@ WindMill/
 
 | Key | Action |
 |---|---|
-| `,` / `.` | Yaw the windmill heads (temporary — folded into Phase 7's scheme) |
+| `W` `S` | Forward / backward (orbit: zoom) |
+| `A` `D` | Strafe left / right (orbit: swing) |
+| `E` `R` | Rise / descend (orbit: height) |
+| `LEFT SHIFT` | Move faster (hold) |
+| `RIGHT MOUSE` | Look around (hold; cursor hides) |
+| `F` | Toggle orbit camera / free-fly |
+| `P` | Toggle perspective / orthographic |
+| `T` | Toggle textures on / off |
+| `SPACE` | Pause / resume all animation |
+| `+` / `-` | Blade speed up / down |
+| `,` / `.` | Yaw the windmill heads |
 | `ESC` | Quit |
 
-(The full control list grows through Phase 7 and Phase 10.)
+`printControls()` prints this same list to the console at startup.
+(Phase 10 adds the light-toggle keys 1-7.)
