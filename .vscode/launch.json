@@ -1,0 +1,17 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug Windmill Farm",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/WindmillFarm.exe",
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "MIMode": "gdb",
+            "miDebuggerPath": "C:/msys64/mingw64/bin/gdb.exe",
+            "preLaunchTask": "Build",
+            "externalConsole": false
+        }
+    ]
+}
