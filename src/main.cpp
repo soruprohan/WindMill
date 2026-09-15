@@ -3,7 +3,10 @@
 // Phase 0: window skeleton.
 // Phase 1: Shader class loads / compiles / links GLSL from disk.
 // Phase 2: VAO / VBO / EBO wrappers, drawing via glDrawElements.
-// Phase 3: MVP matrices, depth testing, and an animated 24-vertex cube.
+// Phase 3: MVP matrices, depth testing, an animated cube.
+// Phase 4: primitive library and the Mesh class.
+// Phase 5: the windmill's nested transformation hierarchy.
+// Phase 6: the complete scene.
 
 #include <glad/glad.h>   // must come before GLFW or any other GL header
 #include <GLFW/glfw3.h>
@@ -11,21 +14,17 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
-#include <cstddef>       // offsetof
+#include <cmath>
 #include <iostream>
-#include <vector>
 
+#include "Scene.h"
 #include "Shader.h"
-#include "VAO.h"
-#include "VBO.h"
-#include "EBO.h"
-#include "Vertex.h"
 
 const unsigned int WINDOW_WIDTH  = 1280;
 const unsigned int WINDOW_HEIGHT = 720;
 const char* WINDOW_TITLE = "Windmill Farm";
 
-// Sky blue - the clear colour for the scene from here on.
+// Sky blue.
 const float SKY_R = 0.53f;
 const float SKY_G = 0.81f;
 const float SKY_B = 0.92f;
@@ -35,74 +34,24 @@ void framebufferSizeCallback(GLFWwindow* window, int width, int height)
     glViewport(0, 0, width, height);
 }
 
-void processInput(GLFWwindow* window)
+void processInput(GLFWwindow* window, Scene& scene, float deltaTime)
 {
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(window, true);
+
+    // Phase 5 check: yawing the head must swing the blades with it while they
+    // keep spinning. Phase 7 folds this into the full control scheme.
+    const float yawRate = 60.0f * deltaTime;
+    if (glfwGetKey(window, GLFW_KEY_COMMA)  == GLFW_PRESS) scene.AdjustHeadYaw(-yawRate);
+    if (glfwGetKey(window, GLFW_KEY_PERIOD) == GLFW_PRESS) scene.AdjustHeadYaw( yawRate);
 }
 
 void printControls()
 {
     std::cout << "\n=============== WINDMILL FARM - CONTROLS ===============\n"
+              << "  , / .   Yaw the windmill heads\n"
               << "  ESC     Quit\n"
               << "========================================================\n\n";
-}
-
-// ---------------------------------------------------------------------------
-// A unit cube centred on the origin, built as 24 vertices - four per face - so
-// that every face carries its own normal and its own texture coordinates.
-// Sharing 8 corner vertices would force one averaged normal per corner, which
-// is wrong for a hard-edged shape.
-//
-// Winding is counter-clockwise when each face is viewed from outside.
-// Phase 4 moves this into Primitives::makeCube().
-// ---------------------------------------------------------------------------
-static void makeCube(std::vector<Vertex>& vertices, std::vector<GLuint>& indices)
-{
-    const float h = 0.5f;   // half extent
-
-    struct Face { glm::vec3 normal, color; glm::vec3 corner[4]; };
-
-    const Face faces[6] = {
-        // +Z front (red)
-        { {0,0,1}, {0.85f, 0.25f, 0.25f},
-          { {-h,-h, h}, { h,-h, h}, { h, h, h}, {-h, h, h} } },
-        // -Z back (green)
-        { {0,0,-1}, {0.30f, 0.75f, 0.35f},
-          { { h,-h,-h}, {-h,-h,-h}, {-h, h,-h}, { h, h,-h} } },
-        // -X left (blue)
-        { {-1,0,0}, {0.25f, 0.45f, 0.85f},
-          { {-h,-h,-h}, {-h,-h, h}, {-h, h, h}, {-h, h,-h} } },
-        // +X right (yellow)
-        { {1,0,0}, {0.90f, 0.80f, 0.25f},
-          { { h,-h, h}, { h,-h,-h}, { h, h,-h}, { h, h, h} } },
-        // -Y bottom (magenta)
-        { {0,-1,0}, {0.75f, 0.30f, 0.70f},
-          { {-h,-h,-h}, { h,-h,-h}, { h,-h, h}, {-h,-h, h} } },
-        // +Y top (cyan)
-        { {0,1,0}, {0.30f, 0.80f, 0.80f},
-          { {-h, h, h}, { h, h, h}, { h, h,-h}, {-h, h,-h} } },
-    };
-
-    const glm::vec2 uv[4] = { {0,0}, {1,0}, {1,1}, {0,1} };
-
-    vertices.clear();
-    indices.clear();
-    vertices.reserve(24);
-    indices.reserve(36);
-
-    for (int f = 0; f < 6; ++f)
-    {
-        GLuint base = static_cast<GLuint>(vertices.size());
-
-        for (int c = 0; c < 4; ++c)
-            vertices.push_back({ faces[f].corner[c], faces[f].normal,
-                                 uv[c], faces[f].color });
-
-        // Two triangles per face.
-        indices.insert(indices.end(), { base + 0, base + 1, base + 2,
-                                        base + 2, base + 3, base + 0 });
-    }
 }
 
 int main()
@@ -145,10 +94,18 @@ int main()
     glViewport(0, 0, fbWidth, fbHeight);
     glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
 
-    // Without this, far faces paint over near ones and the cube looks
+    // Without this, far faces paint over near ones and solids look
     // inside-out. The matching GL_DEPTH_BUFFER_BIT in glClear is just as
     // important - half the fix on its own does nothing.
     glEnable(GL_DEPTH_TEST);
+
+    // Every primitive winds counter-clockwise when seen from outside, so
+    // back faces can be discarded. It roughly halves the triangles rasterised
+    // and, during development, makes any winding mistake obvious immediately:
+    // a wrongly wound face simply disappears.
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_BACK);
+    glFrontFace(GL_CCW);
 
     std::cout << "OpenGL " << glGetString(GL_VERSION) << "\n"
               << "Renderer: " << glGetString(GL_RENDERER) << "\n"
@@ -164,36 +121,21 @@ int main()
         return -1;
     }
 
-    // ---- Geometry --------------------------------------------------------
-    std::vector<Vertex> vertices;
-    std::vector<GLuint> indices;
-    makeCube(vertices, indices);
-
-    VAO vao;
-    vao.Bind();
-
-    VBO vbo(vertices);
-    EBO ebo(indices);
-    ebo.Bind();   // the VAO records this binding
-
-    const GLsizei stride = sizeof(Vertex);
-    vao.LinkAttrib(vbo, 0, 3, GL_FLOAT, stride, (void*)offsetof(Vertex, position));
-    vao.LinkAttrib(vbo, 1, 3, GL_FLOAT, stride, (void*)offsetof(Vertex, normal));
-    vao.LinkAttrib(vbo, 2, 2, GL_FLOAT, stride, (void*)offsetof(Vertex, texCoord));
-    vao.LinkAttrib(vbo, 3, 3, GL_FLOAT, stride, (void*)offsetof(Vertex, color));
-
-    vao.Unbind();
-    vbo.Unbind();
-    // The EBO is unbound only after the VAO is unbound. Doing it while the
-    // VAO is still bound would erase the element buffer from the VAO.
-    ebo.Unbind();
-
+    // ---- Scene -----------------------------------------------------------
+    Scene scene;
     printControls();
+
+    float lastFrame = static_cast<float>(glfwGetTime());
 
     // ---- Render loop -----------------------------------------------------
     while (!glfwWindowShouldClose(window))
     {
-        processInput(window);
+        float currentFrame = static_cast<float>(glfwGetTime());
+        float deltaTime = currentFrame - lastFrame;
+        lastFrame = currentFrame;
+
+        processInput(window, scene, deltaTime);
+        scene.Update(deltaTime);
 
         glClearColor(SKY_R, SKY_G, SKY_B, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -205,32 +147,32 @@ int main()
         float aspect = (fbHeight > 0) ? (float)fbWidth / (float)fbHeight : 1.0f;
 
         glm::mat4 projection = glm::perspective(glm::radians(45.0f), aspect,
-                                                0.1f, 100.0f);
-        glm::mat4 view = glm::lookAt(glm::vec3(0.0f, 1.5f, 4.0f),   // eye
-                                     glm::vec3(0.0f, 0.0f, 0.0f),   // target
-                                     glm::vec3(0.0f, 1.0f, 0.0f));  // up
+                                                0.1f, 200.0f);
 
-        // Spin on a tilted axis so several faces come into view.
-        float t = (float)glfwGetTime();
-        glm::mat4 model = glm::rotate(glm::mat4(1.0f), t * glm::radians(45.0f),
-                                      glm::normalize(glm::vec3(0.4f, 1.0f, 0.2f)));
+        // Placeholder view: a slow orbit so the whole farm can be inspected.
+        // Phase 7 replaces this entirely with the Camera class.
+        const float orbitRadius = 34.0f;
+        const float orbitHeight = 10.0f;
+        float orbitAngle = currentFrame * 0.12f;
+        glm::vec3 eye(std::sin(orbitAngle) * orbitRadius,
+                      orbitHeight,
+                      std::cos(orbitAngle) * orbitRadius);
+        // Aimed above the horizon rather than straight at the ground, so the
+        // windmill heads and the sun stay in frame.
+        glm::mat4 view = glm::lookAt(eye, glm::vec3(0.0f, 5.0f, 0.0f),
+                                     glm::vec3(0.0f, 1.0f, 0.0f));
 
         shader.setMat4("projection", projection);
         shader.setMat4("view", view);
-        shader.setMat4("model", model);
 
-        vao.Bind();
-        glDrawElements(GL_TRIANGLES, ebo.count, GL_UNSIGNED_INT, 0);
-        vao.Unbind();
+        scene.Draw(shader);
 
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
 
     // ---- Shutdown --------------------------------------------------------
-    vao.Delete();
-    vbo.Delete();
-    ebo.Delete();
+    scene.Delete();
     shader.Delete();
 
     glfwDestroyWindow(window);

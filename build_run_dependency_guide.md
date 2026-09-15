@@ -3,9 +3,12 @@
 A 3D countryside scene with nested rotational hierarchies, in OpenGL 3.3 Core.
 See [windmill_farm_implementation_plan.md](windmill_farm_implementation_plan.md) for the phase plan.
 
-**Current status: Phase 3 complete** — a 24-vertex cube spinning in perspective,
-drawn via `glDrawElements` with depth testing on and GLSL loaded from disk.
-See [phase1_to_3.md](phase1_to_3.md) for what Phases 1–3 added.
+**Current status: Phase 6 complete** — the full countryside scene: two windmills
+with nested rotating hierarchies, farmhouse, water wheel, trees, fence, lamp
+posts and sun, flat-shaded and animated.
+
+- [phase1_to_3.md](phase1_to_3.md) — Shader class, buffer wrappers, MVP and depth
+- [phase4_to_6.md](phase4_to_6.md) — primitive library, Mesh, windmill hierarchy, scene
 
 ## Build
 
@@ -45,7 +48,7 @@ The program must run with the project root as its working directory, so that
 
 ```
 WindMill/
-├── src/            main.cpp, glad.c, Shader, VAO/VBO/EBO, Vertex.h
+├── src/            main.cpp, glad.c, Scene, Primitives, Mesh, Shader, VAO/VBO/EBO
 ├── shaders/        default.vert / default.frag
 ├── textures/       image files (Phase 8)
 ├── libs/           header-only third-party (stb_image.h)
@@ -57,6 +60,7 @@ WindMill/
 
 | Key | Action |
 |---|---|
+| `,` / `.` | Yaw the windmill heads (temporary — folded into Phase 7's scheme) |
 | `ESC` | Quit |
 
 (The full control list grows through Phase 7 and Phase 10.)
