@@ -34,13 +34,19 @@ namespace Primitives
 
     // Flat grid in the XZ plane at y = 0, normal +Y.
     // uvScale > 1 makes a texture tile rather than stretch (used by Phase 8).
+    // The three-argument form tiles U (along X) and V (along Z) separately,
+    // for long thin surfaces such as the river.
     MeshData makePlane(int subdivisions = 1, float uvScale = 1.0f);
+    MeshData makePlane(int subdivisions, float uvScaleU, float uvScaleV);
 
     // Y-axis cylinder with flat caps, spanning y = -0.5 .. +0.5.
     MeshData makeCylinder(int segments = 24);
 
     // Y-axis cone: base disc at y = -0.5, apex at y = +0.5.
-    MeshData makeCone(int segments = 24);
+    // uvScaleU repeats the texture around the cone, uvScaleV up it. A tree
+    // canopy is fine at 1; a mountain needs many repeats, and more around
+    // than up because its circumference is longer than its slope.
+    MeshData makeCone(int segments = 24, float uvScaleU = 1.0f, float uvScaleV = 1.0f);
 
     // UV sphere of diameter 1.
     MeshData makeSphere(int sectors = 24, int stacks = 16);

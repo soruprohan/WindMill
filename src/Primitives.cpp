@@ -57,6 +57,11 @@ MeshData makeCube()
 // ---------------------------------------------------------------------------
 MeshData makePlane(int subdivisions, float uvScale)
 {
+    return makePlane(subdivisions, uvScale, uvScale);
+}
+
+MeshData makePlane(int subdivisions, float uvScaleU, float uvScaleV)
+{
     if (subdivisions < 1) subdivisions = 1;
 
     MeshData m;
@@ -71,7 +76,7 @@ MeshData makePlane(int subdivisions, float uvScale)
             float u = static_cast<float>(j) / static_cast<float>(n);
             m.vertices.push_back({ glm::vec3(u - 0.5f, 0.0f, v - 0.5f),
                                    up,
-                                   glm::vec2(u * uvScale, v * uvScale),
+                                   glm::vec2(u * uvScaleU, v * uvScaleV),
                                    WHITE });
         }
     }
@@ -165,10 +170,13 @@ MeshData makeCylinder(int segments)
 // tilts upward. For base radius r and height H the outward normal at angle
 // theta is normalize(H*cos, r, H*sin).
 //
-// The apex is emitted once per triangle rather than shared, because the
-// normal there differs for every surrounding face.
+// Built like the cylinder: a bottom ring and a "top ring" whose vertices all
+// sit at the apex but each carry their own angle's normal and U coordinate.
+// Sharing one apex vertex between neighbouring faces would force one normal
+// and one U on all of them, which puts a visible seam in both the shading
+// and the texture at every segment edge.
 // ---------------------------------------------------------------------------
-MeshData makeCone(int segments)
+MeshData makeCone(int segments, float uvScaleU, float uvScaleV)
 {
     if (segments < 3) segments = 3;
 
@@ -182,24 +190,27 @@ MeshData makeCone(int segments)
         return glm::normalize(glm::vec3(H * std::cos(theta), r, H * std::sin(theta)));
     };
 
-    // --- side ---
+    // --- side: segments+1 pairs so the texture seam closes cleanly ---
+    GLuint sideBase = static_cast<GLuint>(m.vertices.size());
+    for (int i = 0; i <= segments; ++i)
+    {
+        float t     = static_cast<float>(i) / static_cast<float>(segments);
+        float theta = t * twoPi;
+        glm::vec3 n = sideNormal(theta);
+
+        m.vertices.push_back({ glm::vec3(std::cos(theta) * r, -h, std::sin(theta) * r),
+                               n, glm::vec2(t * uvScaleU, 0.0f), WHITE });
+        m.vertices.push_back({ glm::vec3(0.0f, h, 0.0f),
+                               n, glm::vec2(t * uvScaleU, uvScaleV), WHITE });
+    }
     for (int i = 0; i < segments; ++i)
     {
-        float t0 = static_cast<float>(i)     / segments;
-        float t1 = static_cast<float>(i + 1) / segments;
-        float a0 = t0 * twoPi;
-        float a1 = t1 * twoPi;
-        float am = (a0 + a1) * 0.5f;
-
-        glm::vec3 p0(std::cos(a0) * r, -h, std::sin(a0) * r);
-        glm::vec3 p1(std::cos(a1) * r, -h, std::sin(a1) * r);
-        glm::vec3 apex(0.0f, h, 0.0f);
-
-        GLuint base = static_cast<GLuint>(m.vertices.size());
-        m.vertices.push_back({ p0,   sideNormal(a0), glm::vec2(t0, 0.0f), WHITE });
-        m.vertices.push_back({ apex, sideNormal(am), glm::vec2((t0 + t1) * 0.5f, 1.0f), WHITE });
-        m.vertices.push_back({ p1,   sideNormal(a1), glm::vec2(t1, 0.0f), WHITE });
-        m.indices.insert(m.indices.end(), { base, base + 1, base + 2 });
+        GLuint b0 = sideBase + static_cast<GLuint>(i * 2);   // bottom, this angle
+        GLuint t0 = b0 + 1;                                   // apex,   this angle
+        GLuint b1 = b0 + 2;                                   // bottom, next angle
+        // One triangle per segment; the second half of the "quad" would
+        // have two corners at the apex and no area, so it is not emitted.
+        m.indices.insert(m.indices.end(), { b0, t0, b1 });
     }
 
     // --- base disc ---

@@ -275,6 +275,57 @@ def make_metal():
     return px
 
 
+def make_water():
+    """Streaks stretched along U, the flow direction, so scrolling reads as current."""
+    streak = fbm(SIZE, SIZE, 5, 307, 4, aspect=0.12)
+    ripple = fbm(SIZE, SIZE, 14, 331, 3, aspect=0.4)
+    deep, light = (0.13, 0.36, 0.58), (0.42, 0.66, 0.84)
+    px = []
+    for y in range(SIZE):
+        row = []
+        for x in range(SIZE):
+            t = streak[y][x] * 0.7 + ripple[y][x] * 0.3
+            c = mix(deep, light, t)
+            if ripple[y][x] > 0.74:
+                c = shade(c, 1.22)          # sparkle on the crests
+            row.append(c)
+        px.append(row)
+    return px
+
+
+def make_rock():
+    """Mottled grey for the mountains."""
+    n = fbm(SIZE, SIZE, 5, 401, 5)
+    fine = fbm(SIZE, SIZE, 28, 433, 2)
+    dark, light = (0.27, 0.27, 0.28), (0.60, 0.58, 0.54)
+    px = []
+    for y in range(SIZE):
+        row = []
+        for x in range(SIZE):
+            t = n[y][x] * 0.75 + fine[y][x] * 0.25
+            c = mix(dark, light, t)
+            if n[y][x] < 0.30:
+                c = shade(c, 0.66)          # crevices
+            row.append(c)
+        px.append(row)
+    return px
+
+
+def make_dirt():
+    """Earth for the river banks."""
+    n = fbm(SIZE, SIZE, 6, 503, 4)
+    fine = fbm(SIZE, SIZE, 32, 541, 2)
+    dark, light = (0.30, 0.21, 0.12), (0.56, 0.43, 0.28)
+    px = []
+    for y in range(SIZE):
+        row = []
+        for x in range(SIZE):
+            t = n[y][x] * 0.7 + fine[y][x] * 0.3
+            row.append(mix(dark, light, t))
+        px.append(row)
+    return px
+
+
 TEXTURES = [
     ('grass.png',  make_grass),
     ('leaves.png', make_leaves),
@@ -284,6 +335,9 @@ TEXTURES = [
     ('roof.png',   make_roof),
     ('stone.png',  make_stone),
     ('metal.png',  make_metal),
+    ('water.png',  make_water),
+    ('rock.png',   make_rock),
+    ('dirt.png',   make_dirt),
 ]
 
 if __name__ == '__main__':

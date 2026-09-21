@@ -143,7 +143,7 @@ int main()
 
     // ---- Scene and camera -------------------------------------------------
     Scene  scene;
-    Camera camera(glm::vec3(0.0f, 7.0f, 30.0f), -90.0f, -8.0f);
+    Camera camera(glm::vec3(0.0f, 7.0f, 30.0f), -90.0f, -5.0f);
 
     bool texturesOn = true;
 

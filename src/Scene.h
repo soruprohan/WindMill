@@ -48,8 +48,12 @@ public:
 
     // Animation state. Phase 7 binds keys to these.
     float bladeSpeed = 60.0f;    // degrees per second
-    float wheelSpeed = 35.0f;
     bool  paused     = false;
+
+    // How fast the river runs, in units per second. This one number drives
+    // both the scrolling water and the water wheel, so the wheel turns
+    // exactly as fast as the current pushing it.
+    float riverFlow  = 1.6f;
 
 private:
     void drawGround(Shader& shader);
@@ -62,21 +66,32 @@ private:
                       const glm::vec3& to, int spans);
     void drawLampPost(Shader& shader, const glm::vec3& pos);
     void drawSun(Shader& shader);
+    void drawRiver(Shader& shader);
+    void drawWaterfall(Shader& shader);
+    void drawMountain(Shader& shader, const Transform& t);
 
     // Generated once at startup, redrawn many times with different matrices.
     Mesh cube, plane, cylinder, cone, sphere, prism;
 
+    // Same shapes, but with their own texture tiling: the river is long and
+    // thin, the waterfall is a tall strip, and a mountain is far too big for
+    // one repeat of the rock texture.
+    Mesh riverPlane, fallPlane, mountain;
+
     // Loaded once at startup. All bind to texture unit 0; Phase 11 adds the
     // specular maps that need a second unit.
     Texture texGrass, texLeaves, texBark, texWood,
-            texBrick, texRoof, texStone, texMetal;
+            texBrick, texRoof, texStone, texMetal,
+            texWater, texRock, texDirt;
 
-    // Animation angles, advanced in Update().
-    float bladeAngle = 0.0f;
-    float wheelAngle = 0.0f;
+    // Animation state, advanced in Update().
+    float bladeAngle  = 0.0f;
+    float wheelAngle  = 0.0f;
+    float waterScroll = 0.0f;   // distance the river has flowed, in units
 
     std::vector<Windmill>  windmills;
     std::vector<Transform> trees;
+    std::vector<Transform> mountains;
     std::vector<glm::vec3> lampPosts;
     std::vector<glm::vec3> lampBulbs;   // world-space, computed once at layout
 

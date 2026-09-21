@@ -28,9 +28,13 @@ namespace
     const glm::vec3 C_METAL   (0.26f, 0.26f, 0.30f);
     const glm::vec3 C_BULB    (1.00f, 0.93f, 0.68f);
     const glm::vec3 C_SUN     (1.00f, 0.90f, 0.45f);
+    const glm::vec3 C_WATER   (0.25f, 0.50f, 0.72f);
+    const glm::vec3 C_ROCK    (0.44f, 0.43f, 0.42f);
+    const glm::vec3 C_DIRT    (0.42f, 0.31f, 0.19f);
 
-    // Scene dimensions.
-    const float GROUND_SIZE  = 60.0f;
+    // Scene dimensions. The ground is much larger than the farm so that its
+    // edge sits behind the mountain ring and is never seen.
+    const float GROUND_SIZE  = 160.0f;
     const float FARM_EXTENT  = 18.0f;   // fence boundary, +/- on X and Z
 
     // Windmill proportions.
@@ -38,6 +42,26 @@ namespace
     const float TOWER_DIA    = 1.7f;
     const glm::vec3 HEAD_SIZE(1.5f, 1.3f, 1.9f);
     const float BLADE_LENGTH = 3.8f;
+
+    // The river runs east-west just behind the back fence, flowing +X.
+    // It starts at the foot of the west mountain (where the waterfall is)
+    // and disappears into the east one.
+    const float RIVER_Z      = -22.0f;
+    const float RIVER_X0     = -38.0f;
+    const float RIVER_X1     =  46.0f;
+    const float RIVER_WIDTH  =   5.6f;
+    const float RIVER_TILES  =  20.0f;  // texture repeats along its length
+
+    // Water wheel: the paddles reach WHEEL_RADIUS from the axle, and the
+    // axle sits low enough that they dip into the river.
+    const float WHEEL_RADIUS = 2.6f;
+    const float WHEEL_WIDTH  = 1.3f;
+
+    // The waterfall lies on the west mountain's slope. Its numbers match
+    // that mountain (see the mountain table in the constructor).
+    const float FALL_LENGTH  = 14.0f;
+    const float FALL_WIDTH   =  4.0f;
+    const float FALL_TILES   =  3.5f;
 }
 
 glm::mat4 Transform::matrix() const
@@ -55,11 +79,14 @@ glm::mat4 Transform::matrix() const
 // ---------------------------------------------------------------------------
 Scene::Scene()
     : cube    (Primitives::makeCube()),
-      plane   (Primitives::makePlane(8, 20.0f)),
+      plane   (Primitives::makePlane(8, 50.0f)),
       cylinder(Primitives::makeCylinder(28)),
       cone    (Primitives::makeCone(28)),
       sphere  (Primitives::makeSphere(28, 18)),
       prism   (Primitives::makePrism()),
+      riverPlane(Primitives::makePlane(1, RIVER_TILES, 1.5f)),
+      fallPlane (Primitives::makePlane(1, FALL_TILES, 1.0f)),
+      mountain  (Primitives::makeCone(36, 30.0f, 10.0f)),
       texGrass ("textures/grass.png"),
       texLeaves("textures/leaves.png"),
       texBark  ("textures/bark.png"),
@@ -67,7 +94,10 @@ Scene::Scene()
       texBrick ("textures/brick.png"),
       texRoof  ("textures/roof.png"),
       texStone ("textures/stone.png"),
-      texMetal ("textures/metal.png")
+      texMetal ("textures/metal.png"),
+      texWater ("textures/water.png"),
+      texRock  ("textures/rock.png"),
+      texDirt  ("textures/dirt.png")
 {
     // --- windmills ---
     windmills.push_back({ glm::vec3(-9.0f, 0.0f, -7.0f), 1.00f, -25.0f,   0.0f });
@@ -77,12 +107,15 @@ Scene::Scene()
     house.position    = glm::vec3(1.0f, 0.0f, 7.5f);
     house.rotationDeg = glm::vec3(0.0f, -18.0f, 0.0f);
 
-    // --- water wheel, clear of the house so its shape reads ---
-    // y is the axle height; the support posts run from the ground up to it.
-    wheelPos = glm::vec3(-14.0f, 2.6f, 8.5f);
+    // --- water wheel, standing in the river outside the back fence ---
+    // y is the axle height: a little less than the wheel's reach, so the
+    // paddles at the bottom dip into the water. Support posts rise to it.
+    wheelPos = glm::vec3(-14.0f, WHEEL_RADIUS - 0.35f, RIVER_Z);
 
     // --- trees: varied positions and scales ---
-    const float treeData[8][4] = {
+    // The first eight are inside the fence; the rest are scattered between
+    // the fence and the mountains so the land does not look empty.
+    const float treeData[18][4] = {
         // x       z      scale   yaw
         { -15.0f,  2.0f,  1.15f,  20.0f },
         { -13.0f, -13.0f, 0.90f, 140.0f },
@@ -92,6 +125,16 @@ Scene::Scene()
         {  15.5f, -15.0f, 0.95f, 250.0f },
         {  -6.0f,  14.5f, 1.00f, 300.0f },
         {  12.0f, -2.0f,  0.72f,  95.0f },
+        { -27.0f,  -8.0f, 1.30f,  35.0f },
+        { -31.0f,  14.0f, 1.10f, 120.0f },
+        { -24.0f,  26.0f, 1.25f, 210.0f },
+        {  26.0f,  -4.0f, 1.35f, 160.0f },
+        {  30.0f,  18.0f, 1.05f,  80.0f },
+        {  22.0f,  30.0f, 1.20f, 300.0f },
+        {  -3.0f,  30.0f, 1.15f,  50.0f },
+        { -30.0f, -32.0f, 1.40f, 230.0f },
+        {  33.0f, -34.0f, 1.30f, 145.0f },
+        {   4.0f, -36.0f, 1.10f, 330.0f },
     };
     for (const auto& t : treeData)
     {
@@ -116,9 +159,41 @@ Scene::Scene()
     for (const auto& p : lampPosts)
         lampBulbs.push_back(p + glm::vec3(0.0f, poleHeight + 0.22f, 0.0f));
 
+    // --- mountains: a ring around the whole scene ---
+    // Cones, placed so their bases overlap into a continuous range that
+    // hides the edge of the ground from every camera position inside it.
+    // The first entry is the river's source: the waterfall is placed on its
+    // east-facing slope, so its position and size are used by drawWaterfall.
+    const float mountainData[15][4] = {
+        // x       z     baseDia  height
+        { -52.0f, -22.0f, 30.0f, 26.0f },   // river source (west)
+        {  56.0f, -20.0f, 28.0f, 22.0f },   // river exit (east)
+        { -40.0f, -48.0f, 36.0f, 30.0f },
+        {  -8.0f, -56.0f, 40.0f, 32.0f },
+        {  26.0f, -52.0f, 34.0f, 28.0f },
+        {  50.0f, -44.0f, 30.0f, 24.0f },
+        {  60.0f,   8.0f, 32.0f, 25.0f },
+        {  52.0f,  36.0f, 30.0f, 22.0f },
+        {  24.0f,  54.0f, 34.0f, 26.0f },
+        { -12.0f,  58.0f, 38.0f, 30.0f },
+        { -42.0f,  50.0f, 32.0f, 24.0f },
+        { -58.0f,  22.0f, 34.0f, 27.0f },
+        { -62.0f,  -6.0f, 28.0f, 21.0f },
+        { -26.0f, -60.0f, 26.0f, 20.0f },
+        {   8.0f, -46.0f, 22.0f, 16.0f },   // small foothill in front
+    };
+    for (const auto& m : mountainData)
+    {
+        Transform tr;
+        tr.position = glm::vec3(m[0], 0.0f, m[1]);
+        tr.scale    = glm::vec3(m[2], m[3], m[2]);
+        mountains.push_back(tr);
+    }
+
     // --- sun ---
-    // High enough to read as an afternoon sun, low enough to stay in frame.
-    sunPos = glm::vec3(26.0f, 19.0f, -30.0f);
+    // Above the mountain tops, and low enough to stay in frame from the
+    // starting camera.
+    sunPos = glm::vec3(34.0f, 24.0f, -44.0f);
 }
 
 void Scene::Update(float deltaTime)
@@ -126,6 +201,14 @@ void Scene::Update(float deltaTime)
     if (paused) return;
 
     bladeAngle = std::fmod(bladeAngle + bladeSpeed * deltaTime, 360.0f);
+
+    // The river flows...
+    waterScroll += riverFlow * deltaTime;
+
+    // ...and the wheel is turned by it. A paddle in the water moves at the
+    // water's speed, so the angular speed is riverFlow / radius (radians per
+    // second), converted to degrees.
+    const float wheelSpeed = glm::degrees(riverFlow / WHEEL_RADIUS);
     wheelAngle = std::fmod(wheelAngle + wheelSpeed * deltaTime, 360.0f);
 }
 
@@ -137,7 +220,14 @@ void Scene::AdjustHeadYaw(float degrees)
 
 void Scene::Draw(Shader& shader)
 {
+    // Only the water draws use a texture offset; make sure nothing else
+    // inherits a stale one.
+    shader.setVec2("uvOffset", glm::vec2(0.0f));
+
     drawGround(shader);
+    for (const auto& m : mountains) drawMountain(shader, m);
+    drawRiver(shader);
+    drawWaterfall(shader);
     for (const auto& w : windmills) drawWindmill(shader, w);
     drawHouse(shader, house);
     drawWaterWheel(shader, wheelPos);
@@ -155,6 +245,9 @@ void Scene::Delete()
     cone.Delete();
     sphere.Delete();
     prism.Delete();
+    riverPlane.Delete();
+    fallPlane.Delete();
+    mountain.Delete();
 
     texGrass.Delete();
     texLeaves.Delete();
@@ -164,6 +257,9 @@ void Scene::Delete()
     texRoof.Delete();
     texStone.Delete();
     texMetal.Delete();
+    texWater.Delete();
+    texRock.Delete();
+    texDirt.Delete();
 }
 
 // ---------------------------------------------------------------------------
@@ -268,8 +364,8 @@ void Scene::drawHouse(Shader& shader, const Transform& t)
 void Scene::drawWaterWheel(Shader& shader, const glm::vec3& pos)
 {
     const int   paddles = 10;
-    const float radius  = 2.3f;
-    const float width   = 1.3f;                        // axial, along Z
+    const float radius  = WHEEL_RADIUS - 0.3f;         // rim; paddles stand 0.3 proud
+    const float width   = WHEEL_WIDTH;                 // axial, along Z
     const float step    = 360.0f / static_cast<float>(paddles);
 
     // Chord between neighbouring rim points, so the rim segments meet.
@@ -285,8 +381,11 @@ void Scene::drawWaterWheel(Shader& shader, const glm::vec3& pos)
         cube.Draw(shader, post, C_WOOD_D, &texWood);
     }
 
+    // Positive rotation about Z is anticlockwise seen from the camera side
+    // (+Z), which moves the bottom paddles toward +X - the way the river
+    // flows. The water pushes the wheel, so they must agree.
     glm::mat4 pivot = glm::translate(glm::mat4(1.0f), pos);
-    pivot = glm::rotate(pivot, glm::radians(-wheelAngle), glm::vec3(0, 0, 1));
+    pivot = glm::rotate(pivot, glm::radians(wheelAngle), glm::vec3(0, 0, 1));
 
     // Axle, lying along Z like the windmill hub.
     glm::mat4 hub = glm::rotate(pivot, glm::radians(90.0f), glm::vec3(1, 0, 0));
@@ -412,6 +511,94 @@ void Scene::drawLampPost(Shader& shader, const glm::vec3& pos)
 void Scene::drawSun(Shader& shader)
 {
     glm::mat4 m = glm::translate(glm::mat4(1.0f), sunPos);
-    m = glm::scale(m, glm::vec3(4.0f));
+    m = glm::scale(m, glm::vec3(4.5f));
     sphere.Draw(shader, m, C_SUN);
+}
+
+// ---------------------------------------------------------------------------
+// THE RIVER
+//
+// A long plane laid just above the grass, with a raised dirt bank down each
+// side so it reads as a channel cut into the ground. The water texture is
+// slid along the surface by uvOffset every frame; that sliding is the whole
+// "flowing" effect.
+// ---------------------------------------------------------------------------
+void Scene::drawRiver(Shader& shader)
+{
+    const float length  = RIVER_X1 - RIVER_X0;
+    const float centreX = (RIVER_X0 + RIVER_X1) * 0.5f;
+
+    // One texture repeat covers (length / RIVER_TILES) units, so dividing the
+    // distance flowed by that gives the offset in texture space. Negative,
+    // because shifting the lookup backward makes the pattern move forward.
+    const float unitsPerTile = length / RIVER_TILES;
+    shader.setVec2("uvOffset", glm::vec2(-waterScroll / unitsPerTile, 0.0f));
+
+    glm::mat4 water = glm::translate(glm::mat4(1.0f),
+                                     glm::vec3(centreX, 0.06f, RIVER_Z));
+    water = glm::scale(water, glm::vec3(length, 1.0f, RIVER_WIDTH));
+    riverPlane.Draw(shader, water, C_WATER, &texWater);
+
+    shader.setVec2("uvOffset", glm::vec2(0.0f));
+
+    // Banks: two long low cubes hugging the water's edge.
+    for (float side : { -1.0f, 1.0f })
+    {
+        float z = RIVER_Z + side * (RIVER_WIDTH * 0.5f + 0.35f);
+        glm::mat4 bank = glm::translate(glm::mat4(1.0f),
+                                        glm::vec3(centreX, 0.18f, z));
+        bank = glm::scale(bank, glm::vec3(length, 0.36f, 0.9f));
+        cube.Draw(shader, bank, C_DIRT, &texDirt);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// THE WATERFALL
+//
+// A plane leaned back onto the slope of the west mountain, where the river
+// begins. A unit plane faces +Y; rotating it about Z by -(slope angle)
+// tilts it to face +X-and-up, which is exactly the direction that mountain's
+// east slope faces. After the rotation the plane's own X axis points DOWN
+// the slope, so scrolling the texture along +U makes the water fall.
+// ---------------------------------------------------------------------------
+void Scene::drawWaterfall(Shader& shader)
+{
+    const Transform& src = mountains[0];          // the river's source
+    const float radius = src.scale.x * 0.5f;
+    const float height = src.scale.y;
+
+    // Angle of the slope above horizontal: tan = height / radius.
+    const float slopeDeg = glm::degrees(std::atan2(height, radius));
+
+    // Walk from the foot of the east slope part-way up it, then step a little
+    // off the surface along its normal so the plane does not z-fight the cone.
+    const glm::vec3 foot   = src.position + glm::vec3(radius, 0.0f, 0.0f);
+    const glm::vec3 upSlope = glm::normalize(glm::vec3(-radius, height, 0.0f));
+    const glm::vec3 normal  = glm::normalize(glm::vec3(height, radius, 0.0f));
+    const glm::vec3 centre  = foot + upSlope * (FALL_LENGTH * 0.5f + 0.4f)
+                                   + normal  * 0.25f;
+
+    const float unitsPerTile = FALL_LENGTH / FALL_TILES;
+    // Falling water moves faster than the river below it.
+    shader.setVec2("uvOffset", glm::vec2(-waterScroll * 2.5f / unitsPerTile, 0.0f));
+
+    glm::mat4 m = glm::translate(glm::mat4(1.0f), centre);
+    m = glm::rotate(m, glm::radians(-slopeDeg), glm::vec3(0, 0, 1));
+    m = glm::scale(m, glm::vec3(FALL_LENGTH, 1.0f, FALL_WIDTH));
+    fallPlane.Draw(shader, m, C_WATER, &texWater);
+
+    shader.setVec2("uvOffset", glm::vec2(0.0f));
+}
+
+// ---------------------------------------------------------------------------
+// A mountain is just a big cone with its base on the ground.
+// ---------------------------------------------------------------------------
+void Scene::drawMountain(Shader& shader, const Transform& t)
+{
+    // Same offset-then-scale trick as the tower: a unit cone is centred on
+    // its origin, so lift it by half its height to put the base at y = 0.
+    glm::mat4 m = glm::translate(glm::mat4(1.0f),
+                                 t.position + glm::vec3(0.0f, t.scale.y * 0.5f, 0.0f));
+    m = glm::scale(m, t.scale);
+    mountain.Draw(shader, m, C_ROCK, &texRock);
 }

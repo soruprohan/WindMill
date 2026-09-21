@@ -3,13 +3,15 @@
 A 3D countryside scene with nested rotational hierarchies, in OpenGL 3.3 Core.
 See [windmill_farm_implementation_plan.md](windmill_farm_implementation_plan.md) for the phase plan.
 
-**Current status: Phase 8 complete** — a fully textured countryside scene you can
-fly or orbit around, with perspective/orthographic and texture toggles. Lighting
-(Phases 9–11) is the remaining work.
+**Current status: Phase 8 complete, plus scene improvements** — a fully textured
+countryside scene ringed by mountains, with a river fed by a waterfall driving
+the water wheel. Fly or orbit around it, with perspective/orthographic and
+texture toggles. Lighting (Phases 9–11) is the remaining work.
 
 - [phase1_to_3.md](phase1_to_3.md) — Shader class, buffer wrappers, MVP and depth
 - [phase4_to_6.md](phase4_to_6.md) — primitive library, Mesh, windmill hierarchy, scene
 - [phase7_to_8.md](phase7_to_8.md) — camera, projections, controls, textures
+- [scene_improvements.md](scene_improvements.md) — river, waterfall, mountains (outside the plan)
 
 ## Build
 
@@ -51,7 +53,7 @@ The program must run with the project root as its working directory, so that
 WindMill/
 ├── src/            main.cpp, glad.c, Camera, Scene, Primitives, Mesh, Texture, Shader, VAO/VBO/EBO
 ├── shaders/        default.vert / default.frag
-├── textures/       8 tiling PNGs + generate_textures.py
+├── textures/       11 tiling PNGs + generate_textures.py
 ├── libs/           header-only third-party (stb_image.h)
 ├── include/        glad/ and KHR/ headers
 └── build/          objects and WindmillFarm.exe (generated, gitignored)
