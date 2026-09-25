@@ -5,7 +5,9 @@
 
 #include "Vertex.h"
 
-// The raw CPU-side output of a generator, before it is uploaded to the GPU.
+// The result of building one shape, before it's sent to the GPU.
+// Just two plain CPU-side lists: the vertices, and which vertices make up
+// each triangle (the indices).
 struct MeshData
 {
     std::vector<Vertex> vertices;
@@ -13,45 +15,53 @@ struct MeshData
 };
 
 // ---------------------------------------------------------------------------
-// Every generator returns a UNIT primitive centred on the origin, fitting
-// inside a 1x1x1 box. Nothing here is sized for a particular object: the
-// scene scales each one with a model matrix instead.
+// This file has one function per shape: makeCube, makePlane, makeCylinder,
+// makeCone, makeSphere, makePrism. Each one builds that shape entirely in
+// CPU memory and hands back a MeshData - no GPU calls happen in here at all.
 //
-// That convention means glm::scale(vec3(w, h, d)) always produces exactly
-// those dimensions, and one generated mesh serves the tower, the trunks, the
-// lamp posts and the water wheel hub alike.
+// A few rules every shape follows:
 //
-// Vertex colours are left white. Per-object colour comes from the
-// "objectColor" uniform, so the same mesh can be drawn in any colour.
+// 1. Every shape is size 1 (fits inside a 1x1x1 box) and centred on (0,0,0).
+//    Need it bigger? Scale it later with a model matrix. This way one
+//    "cylinder" shape can become a windmill tower, a tree trunk, or a lamp
+//    post - just by scaling it differently each time it's drawn.
 //
-// Winding is counter-clockwise viewed from outside on every face, so
-// back-face culling can stay enabled.
+// 2. Every vertex is coloured white. The actual colour you see comes from a
+//    separate "objectColor" value set at draw time, not from the shape data.
+//
+// 3. Triangles are wound counter-clockwise when you look at them from
+//    outside the shape. (This just needs to be consistent - it's what lets
+//    the renderer safely skip drawing the backs of faces you can't see.)
 // ---------------------------------------------------------------------------
 namespace Primitives
 {
-    // Axis-aligned cube, 24 vertices so each face keeps its own normal.
+    // A box. Has 24 vertices (not just 8 corners) because each of the 6
+    // flat faces needs its own copy of the corners, so each face can point
+    // in its own direction (its "normal").
     MeshData makeCube();
 
-    // Flat grid in the XZ plane at y = 0, normal +Y.
-    // uvScale > 1 makes a texture tile rather than stretch (used by Phase 8).
-    // The three-argument form tiles U (along X) and V (along Z) separately,
-    // for long thin surfaces such as the river.
+    // A flat square, lying down (normal points straight up).
+    // uvScale controls how many times a texture repeats across it instead
+    // of stretching once over the whole thing.
     MeshData makePlane(int subdivisions = 1, float uvScale = 1.0f);
+
+    // Same as above, but lets you repeat the texture a different number of
+    // times along each direction - useful for a long, thin shape like a river.
     MeshData makePlane(int subdivisions, float uvScaleU, float uvScaleV);
 
-    // Y-axis cylinder with flat caps, spanning y = -0.5 .. +0.5.
+    // A can/tube shape, standing upright, with flat caps top and bottom.
     MeshData makeCylinder(int segments = 24);
 
-    // Y-axis cone: base disc at y = -0.5, apex at y = +0.5.
-    // uvScaleU repeats the texture around the cone, uvScaleV up it. A tree
-    // canopy is fine at 1; a mountain needs many repeats, and more around
-    // than up because its circumference is longer than its slope.
+    // An ice-cream-cone shape: flat circle at the bottom, pointed tip at top.
+    // uvScaleU/V repeat the texture around and up the cone - a mountain
+    // needs a lot of repeats so its rock texture doesn't look stretched.
     MeshData makeCone(int segments = 24, float uvScaleU = 1.0f, float uvScaleV = 1.0f);
 
-    // UV sphere of diameter 1.
+    // A ball.
+    //24 sectors → around the sphere
+    // 16 stacks  → from bottom to top
     MeshData makeSphere(int sectors = 24, int stacks = 16);
 
-    // Triangular prism: gable cross-section in XY, ridge running along Z.
-    // Used for the farmhouse roof.
+    // A triangular tube - like a tent, or a house roof shape.
     MeshData makePrism();
 }

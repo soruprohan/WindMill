@@ -17,7 +17,7 @@
 class Mesh
 {
 public:
-    explicit Mesh(const MeshData& data);
+    explicit Mesh(const MeshData& data); //Creates the GPU representation of the geometry.
 
     // colour feeds the "objectColor" uniform, so one mesh serves every object
     // that shares its shape regardless of colour. texture is optional: pass
@@ -25,7 +25,7 @@ public:
     // lamp bulbs. colour is still what shows when textures are toggled off.
     void Draw(Shader& shader, const glm::mat4& model,
               const glm::vec3& color = glm::vec3(1.0f),
-              const Texture* texture = nullptr) const;
+              const Texture* texture = nullptr) const;  //Draws that geometry using a particular model matrix, color, optional texture
 
     void Delete();
 

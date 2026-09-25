@@ -10,7 +10,7 @@ out vec4 FragColor;
 // so one mesh can be redrawn in any colour without regenerating its geometry.
 uniform vec3 objectColor;
 
-uniform sampler2D diffuse0;
+uniform sampler2D diffuse0; //image loaded onto the object.
 uniform bool useTexture;   // global toggle, bound to the T key
 uniform bool hasTexture;   // set per draw: false for the sun and lamp bulbs
 

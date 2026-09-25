@@ -5,8 +5,7 @@
 #include <cmath>
 
 // ---------------------------------------------------------------------------
-// Flat placeholder palette. Phase 8 replaces most of these with textures and
-// Phase 9 starts lighting them properly.
+// Flat placeholder palette
 // ---------------------------------------------------------------------------
 namespace
 {

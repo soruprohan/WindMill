@@ -12,6 +12,8 @@ texture toggles. Lighting (Phases 9–11) is the remaining work.
 - [phase4_to_6.md](phase4_to_6.md) — primitive library, Mesh, windmill hierarchy, scene
 - [phase7_to_8.md](phase7_to_8.md) — camera, projections, controls, textures
 - [scene_improvements.md](scene_improvements.md) — river, waterfall, mountains (outside the plan)
+- [CODE_WALKTHROUGH.md](CODE_WALKTHROUGH.md) — every source file explained block by block, in reading order
+- [farmhouse_render_walkthrough.md](farmhouse_render_walkthrough.md) — one object traced end to end, from `Primitives::makeCube()` to a pixel on screen
 
 ## Build
 

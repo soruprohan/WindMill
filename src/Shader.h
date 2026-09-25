@@ -11,14 +11,14 @@
 class Shader
 {
 public:
-    GLuint ID = 0;
+    GLuint ID = 0; //ID = handle/number that OpenGL gives us 0 means: No valid program has been created yet.
 
     Shader(const char* vertexPath, const char* fragmentPath);
 
     void Activate() const;
     void Delete();
 
-    // Uniform setters.
+    // Uniform setters.These functions make it easier to send data from C++ to GLSL.
     void setBool (const std::string& name, bool  value) const;
     void setInt  (const std::string& name, int   value) const;
     void setFloat(const std::string& name, float value) const;
@@ -34,7 +34,7 @@ private:
 
     GLint location(const std::string& name) const;
 
-    static bool readFile(const char* path, std::string& out);
-    static bool checkCompile(GLuint shader, const char* label);
-    static bool checkLink(GLuint program);
+    static bool readFile(const char* path, std::string& out); // Reads a shader file from disk.For example: default.vert and puts the source code into a C++ string.
+    static bool checkCompile(GLuint shader, const char* label); //Checks whether a shader compiled successfully.
+    static bool checkLink(GLuint program); //Checks whether the vertex shader and fragment shader successfully linked into one program.
 };

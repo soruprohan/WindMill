@@ -9,8 +9,8 @@
 // dozen mesh generators later is painful, so they are correct from the start.
 struct Vertex
 {
-    glm::vec3 position;
+    glm::vec3 position; 
     glm::vec3 normal;     // filled from Phase 3, used from Phase 9 (lighting)
-    glm::vec2 texCoord;   // filled from Phase 3, used from Phase 8 (textures)
-    glm::vec3 color;      // placeholder colour, used Phases 3-7
+    glm::vec2 texCoord;   
+    glm::vec3 color;    
 };
